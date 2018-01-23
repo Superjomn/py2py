@@ -1,4 +1,5 @@
 import sys
+import pprint
 '''
 A lisp interpreter
 
@@ -80,17 +81,28 @@ class Tokenizer(object):
                 '''
                 c = a + b
                 '''
-                target, op0, arg0, op1, arg2 = words
-                codes += [('LOAD_FAST', arg1), ('LOAD_FAST', arg2),
-                          (self.ops[op1], )('LOAD_CONST',
-                                            target), (self.ops[op0], )]
+                target, op0, arg0, op1, arg1 = words
+                codes += [('LOAD_FAST', arg0), ('LOAD_FAST', arg1),
+                          (self.ops[op1], ),
+                          ('LOAD_CONST', target), 
+                          (self.ops[op0], )]
             elif len(words) == 2:
                 codes += [
                     ('LOAD_CONST', words[1]),
                     ('LOAD_FAST', ),
                     ('PRINT_VAL', ),
                 ]
+            elif len(words) == 3:
+                if self.is_var(words[2]):
+                    codes += [
+                        ('LOAD_FAST', words[2]),
+                        ('LOAD_CONST', words[0]),
+                        (self.ops[words[1]],),
+                    ]
         return codes
+
+    def is_var(self, w):
+        return not self.is_digit(w) and not self.is_str(w)
 
     def is_str(self, w):
         return "'" in w or '"' in w
@@ -223,3 +235,13 @@ if __name__ == '__main__':
     frame.run_code([('LOAD_CONST', 0), ('LOAD_FAST', ), ('LOAD_CONST', 1),
                     ('LOAD_FAST', ), ('ADD_TWO', ), ('PRINT_VAL', )])
     assert len(frame.data_stack) == 0
+
+    codes = [
+    "a = 1",
+    "b = 2",
+    "c = a + b",
+    "d = c * a",
+    "print c",
+    ]
+    token = Tokenizer()
+    pprint.pprint(token.parse(codes))
