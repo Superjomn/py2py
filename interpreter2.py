@@ -82,7 +82,8 @@ class Tokenizer(object):
                 c = a + b
                 '''
                 target, op0, arg0, op1, arg1 = words
-                codes += [('LOAD_FAST', arg0), ('LOAD_FAST', arg1),
+                codes += [('LOAD_CONST', int(arg0)) if self.is_digit(arg0) else ('LOAD_FAST', arg0),
+                          ('LOAD_CONST', int(arg1)) if self.is_digit(arg1) else ('LOAD_FAST', arg1),
                           (self.ops[op1], ),
                           ('LOAD_CONST', target), 
                           (self.ops[op0], )]
@@ -93,16 +94,15 @@ class Tokenizer(object):
                     ('PRINT_VAL', ),
                 ]
             elif len(words) == 3:
-                if self.is_var(words[2]):
-                    codes += [
-                        ('LOAD_FAST', words[2]),
-                        ('LOAD_CONST', words[0]),
-                        (self.ops[words[1]],),
-                    ]
+                codes += [
+                    ('LOAD_CONST', int(words[2])) if self.is_digit(words[2]) else ('LOAD_FAST', int(words[2])),
+                    ('LOAD_CONST', words[0]),
+                    (self.ops[words[1]],),
+                ]
         return codes
 
     def is_var(self, w):
-        return not self.is_digit(w) and not self.is_str(w)
+        return not (self.is_digit(w) or self.is_str(w))
 
     def is_str(self, w):
         return "'" in w or '"' in w
@@ -114,7 +114,7 @@ class Tokenizer(object):
         return w == 'false'
 
     def is_digit(self, w):
-        return not self.is_str(w) and w != 'None' and w.isdigit()
+        return w.isdigit()
 
     def is_op(self, w):
         return w in self.ops
@@ -143,7 +143,8 @@ class Frame(object):
         if type(arg) is int:
             self.data_stack.append(self.args[arg])
         else:
-            self.data_stack.append(self.globals[arg])
+            val = self.locals[arg] if arg in self.locals else self.globals[arg]
+            self.data_stack.append(val)
 
     def LOAD_CONST(self):
         pass
@@ -161,6 +162,7 @@ class Frame(object):
     def MUL_TWO(self):
         arg0 = self.data_stack.pop()
         arg1 = self.data_stack.pop()
+        #print 'exec {} * {}'.format(arg0, arg1)
         self.data_stack.append(arg0 * arg1)
 
     def DIV_TWO(self):
@@ -171,7 +173,8 @@ class Frame(object):
     def STORE_TO(self):
         arg0 = self.data_stack.pop()
         arg1 = self.data_stack.pop()
-        self.locals[arg1] = arg0
+        self.locals[arg0] = arg1
+        #print 'exec: {} = {}'.format(arg0, arg1)
 
     def GT(self):
         arg0 = self.data_stack.pop()
@@ -220,7 +223,8 @@ class Frame(object):
         the order that programmer writes is the order to execute the codes, only
         when to call a function.
         '''
-        for c in codes:
+        for no, c in enumerate(codes):
+            print no,c
             code = c[0]
             if len(c) > 0:
                 args = c[1:]
@@ -240,8 +244,12 @@ if __name__ == '__main__':
     "a = 1",
     "b = 2",
     "c = a + b",
-    "d = c * a",
-    "print c",
+    "d = c * b",
+    "print d",
     ]
     token = Tokenizer()
-    pprint.pprint(token.parse(codes))
+    instructoins = token.parse(codes)
+    #pprint.pprint(instructoins)
+    frame = Frame([], {})
+    frame.run_code(instructoins)
+
